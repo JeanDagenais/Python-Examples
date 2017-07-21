@@ -1,0 +1,163 @@
+"""TCP Server"""
+import argparse
+import logging.config
+import socket
+
+# Load the Configuration File
+logging.config.fileConfig('logging_config.ini')
+# Create logger
+log = logging.getLogger(__name__)
+
+
+class TcpServer(object):
+    program_name = "TcpServer - 6/22/2017 - 1.0"
+
+    def __init__(self):
+        log.info("TcpServer constructor")
+        pass
+
+    @staticmethod
+    def initialize_arguments():
+        parser = argparse.ArgumentParser()
+
+        parser.add_argument(
+            '-n',
+            action='store',
+            dest='nic',
+            default='0.0.0.0',
+            type=str,
+            help='Specify the nic')
+
+        parser.add_argument(
+            '-p',
+            action='store',
+            dest='port',
+            default=20001,
+            type=int,
+            help='Specify the port to listen', )
+
+        parser.add_argument(
+            '-ms',
+            action='store',
+            dest='message_size',
+            default=1000,
+            type=int,
+            help='Specify the message size', )
+
+        parser.add_argument(
+            '-m',
+            action='store',
+            dest='mode',
+            default=2,
+            type=int,
+            help='Run time mode; read_only = 1, read_write=2')
+
+        parser.add_argument(
+            '-si',
+            action='store',
+            dest='statistic_interval_ms',
+            default=1,
+            type=int,
+            help='Statistic interval in milliseconds')
+
+        parser.add_argument(
+            '-d',
+            action='store',
+            dest='processing_delay_ms',
+            default=0,
+            type=int,
+            help='Processing delay in milliseconds, default=0')
+
+        program_arguments = parser.parse_args()
+
+        log.info(
+            '----------------------------------------------------------------------------------------------------'
+        )
+        log.info('Run Time Options')
+        log.info('program_name:          %s' % TcpServer.program_name)
+        log.info('nic:                   %s' % program_arguments.nic)
+        log.info('port:                  %s' % program_arguments.port)
+        log.info('mode:                  %s' % program_arguments.mode)
+        log.info('message_size:          %s' % program_arguments.message_size)
+        log.info('statistic_interval_ms: %s' %
+                 program_arguments.statistic_interval_ms)
+        log.info('processing_delay_ms:   %s' %
+                 program_arguments.processing_delay_ms)
+        log.info(
+            '----------------------------------------------------------------------------------------------------'
+        )
+        return program_arguments
+
+    @staticmethod
+    def initialize_network(program_arguments):
+        # Create a TCP/IP socket
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        # Bind the socket to the port
+        server_address = (program_arguments.nic, program_arguments.port)
+        log.info('Listening on nic: %s, port: %s' % server_address)
+        server_socket.bind(server_address)
+        return server_socket
+
+    @staticmethod
+    def process_messages(program_arguments, server_socket):
+        # Listen for incoming connections
+        server_socket.listen(1)
+
+        while True:
+            # Wait for a connection
+            log.info('Waiting for a connection from client')
+            connection, client_address = server_socket.accept()
+
+            try:
+                log.info('Received connection from host: %s, port: %s' %
+                         client_address)
+
+                # Receive the data in small chunks and retransmit it
+                while True:
+                    data = connection.recv(program_arguments.message_size)
+                    if data:
+                        connection.sendall(data)
+                    else:
+                        log.info('No more data from host: %s, port: %s ' %
+                                 client_address)
+                        break
+            finally:
+                # Clean up the connection
+                connection.close()
+
+    @staticmethod
+    def run():
+        program_arguments = TcpServer.initialize_arguments()
+        server_socket = TcpServer.initialize_network(program_arguments)
+        TcpServer.process_messages(program_arguments, server_socket)
+
+
+def start_tcp_server():
+    log.info('Starting TCP Server')
+
+    # Create an instance of the tcp_server
+    tcp_server = TcpServer()
+
+    # Call the run method ...
+    tcp_server.run()
+
+
+if __name__ == '__main__':
+    log.info('Beginning of Program')
+    start_tcp_server()
+
+    # usage: tcp_server_v1.py [-h] [-n NIC] [-p PORT] [-ms MESSAGE_SIZE] [-m MODE]
+    #                      [-si STATISTIC_INTERVAL_MS] [-d PROCESSING_DELAY_MS]
+    #
+    # optional arguments:
+    #   -h, --help            show this help message and exit
+    #   -n NIC                Specify the nic
+    #   -p PORT               Specify the port to listen
+    #   -ms MESSAGE_SIZE      Specify the message size
+    #   -m MODE               Run time mode; read_only = 1, read_write=2
+    #   -si STATISTIC_INTERVAL_MS
+    #                         Statistic interval in milliseconds
+    #   -d PROCESSING_DELAY_MS
+    #                         Processing delay in milliseconds, default=0
+
