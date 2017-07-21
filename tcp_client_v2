@@ -1,0 +1,155 @@
+"""TCP Client"""
+import argparse
+import logging.config
+import socket
+import time
+
+# Load the Configuration File
+logging.config.fileConfig('logging_config.ini')
+# Create logger
+log = logging.getLogger(__name__)
+
+
+class TcpClient:
+    program_name = "TcpClient - 6/22/2017 - 1.0"
+
+    def __init__(self):
+        log.info("TcpClient constructor")
+        pass
+
+    @staticmethod
+    def initialize_arguments():
+        parser = argparse.ArgumentParser()
+
+        parser.add_argument(
+            '-hn',
+            action='store',
+            dest='host_name',
+            default='localhost',
+            type=str,
+            help='Specify the nic')
+
+        parser.add_argument(
+            '-p',
+            action='store',
+            dest='port',
+            default=20001,
+            type=int,
+            help='Specify the port to listen')
+
+        parser.add_argument(
+            '-m',
+            action='store',
+            dest='mode',
+            default=2,
+            type=int,
+            help='Run time mode; read_only = 1, read_write=2')
+
+        parser.add_argument(
+            '-mc',
+            action='store',
+            dest='message_count',
+            default=10000,
+            type=int,
+            help='Count of messages to send/receive, default=10_000')
+
+        parser.add_argument(
+            '-ms',
+            action='store',
+            dest='message_size',
+            default=100,
+            type=int,
+            help='Specify the message size, default=100')
+
+        parser.add_argument(
+            '-si',
+            action='store',
+            dest='statistic_interval_ms',
+            default=1,
+            type=int,
+            help='Statistic interval in milliseconds')
+
+        parser.add_argument(
+            '-t',
+            action='store',
+            dest='throughput',
+            default=1,
+            type=int,
+            help='Throughput in message per second, default=1')
+
+        program_arguments = parser.parse_args()
+
+        log.info(
+            "----------------------------------------------------------------------------------------------------"
+        )
+        log.info("Run Time Options")
+        log.info("program_name:          %s" % TcpClient.program_name)
+        log.info("host_name:             %s" % program_arguments.host_name)
+        log.info("port:                  %s" % program_arguments.port)
+        log.info("mode:                  %s" % program_arguments.mode)
+        log.info("message_count:         %s" % program_arguments.message_count)
+        log.info("message_size:          %s" % program_arguments.message_size)
+        log.info("throughput:            %s" % program_arguments.throughput)
+        log.info("statistic_interval_ms: %s" %
+                 program_arguments.statistic_interval_ms)
+        log.info(
+            "----------------------------------------------------------------------------------------------------"
+        )
+
+        return program_arguments
+
+    @staticmethod
+    def initialize_network(program_arguments):
+        # Create a TCP/IP socket
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        # Connect the socket to the port where the server is listening
+        server_address = (program_arguments.host_name, program_arguments.port)
+        log.info('Connecting to host:%s, port: %s' % server_address)
+        client_socket.connect(server_address)
+        return client_socket
+
+    @staticmethod
+    def process_messages(program_arguments, client_socket):
+        log.info('Program will send %s messages of size: %s bytes',
+                 program_arguments.message_count,
+                 program_arguments.message_size)
+        try:
+            duration = 0.0
+            b = bytes("a" * program_arguments.message_size)
+            start = time.time()
+            for i in range(0, program_arguments.message_count):
+                client_socket.sendall(b)
+                data = client_socket.recv(program_arguments.message_size)
+                if data != b:
+                    print("Error: Sent and received data are both the same")
+
+            # print(duration * pow(10, 6) / program_arguments.message_count, "us for tcp")
+            duration += time.time() - start
+            log.info('Latency to process messages in microseconds: %s' %
+                     (duration * pow(10, 6) / program_arguments.message_count))
+            client_socket.close()
+        finally:
+            log.info('Closing socket')
+            client_socket.close()
+
+    @staticmethod
+    def run():
+        program_arguments = TcpClient.initialize_arguments()
+        client_socket = TcpClient.initialize_network(program_arguments)
+        TcpClient.process_messages(program_arguments, client_socket)
+
+
+def start_tcp_client():
+    log.info("Starting TCP Client")
+
+    # Create an instance of the tcpServer
+    tcp_client = TcpClient()
+
+    # Call the run method ...
+    tcp_client.run()
+
+
+if __name__ == "__main__":
+    log.info("Beginning of Program")
+    start_tcp_client()
